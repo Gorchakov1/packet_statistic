@@ -29,23 +29,26 @@ logic               pkt_size_ena_d2;
 
 logic [A_WIDTH-1:0] wr_addr;
 logic [D_WIDTH-1:0] sum_size;
+logic [D_WIDTH-1:0] sum;
 logic [D_WIDTH-1:0] wr_size;
 logic               pkt_size_ena_d3;
 
 logic [A_WIDTH-1:0] rd_flow_num;
-logic               rd_stb;
+logic               rd_req;
+logic               rd_stb_d1;
 
 logic check_eq_wr_flow;
 logic check_eq_wr_flow_d;
 logic check_eq_wr_rd_flow_d;
 logic wr_ena;
 logic check_eq_wr_rd_flow;
+
 // Проверка на то, что два подряд такта идет один адрес
 assign check_eq_wr_flow    = ( ( rx_flow_num_i == rx_flow_num_d1 ) &&
                                ( pkt_size_ena_d1 && pkt_size_ena_i ) );
 // Проверка одинаковый ли адрес чтения и записи
 assign check_eq_wr_rd_flow = ( ( rd_flow_num == rx_flow_num_d2 ) &&
-                                 pkt_size_ena_d2 && rd_stb );
+                                 pkt_size_ena_d2 && rd_req );
 
 
 
@@ -65,6 +68,7 @@ always_ff @( posedge clk_i or posedge rst_i )
         pkt_size_ena_d2 <= 1'b0;
 
 	pkt_size_ena_d3 <= '0;
+	rd_stb_d1       <= 1'b0;
       end
     else
       begin
@@ -83,14 +87,22 @@ always_ff @( posedge clk_i or posedge rst_i )
         pkt_size_ena_d2       <= pkt_size_ena_d1;
 
 	pkt_size_ena_d3       <= pkt_size_ena_d2;
+
+	rd_stb_d1             <= rd_stb_i;
       end
   end
+
 logic [A_WIDTH-1:0] rd_addr;
 logic [A_WIDTH-1:0] rd_addr_d;
-logic [A_WIDTH-1:0] clean_ena;
+logic               clean_ena;
+
 assign rd_addr = ( pkt_size_ena_d1 )? rx_flow_num_d1 : rd_flow_num;
+
 // Момент когда можно занулить поток, который прочитали, в памяти
-assign clean_ena = ( ( rd_stb && pkt_size_ena_d3 ) && ( rd_flow_num == rd_addr_d ) );
+assign clean_ena = ( ( rd_req && pkt_size_ena_d3 ) &&
+                     ( rd_flow_num == rd_addr_d  ) && 
+		       ~rd_stb_d1 );
+
 always_ff @( posedge clk_i or posedge rst_i )
   begin
     if( rst_i )
@@ -104,14 +116,17 @@ always_ff @( posedge clk_i or posedge rst_i )
       end
   end
 
+assign sum = ( !check_eq_wr_rd_flow ) ? sum_size : 0;// sum_size * !check_eq_wr_rd_flow 
 always_comb
   begin
-    wr_addr <= ( pkt_size_ena_d2                           )? 
-	         rx_flow_num_d2 : rd_flow_num;
-    wr_size <= ( pkt_size_ena_d2                           )?
-	         pkt_size_d2 + ( sum_size * !check_eq_wr_rd_flow ) + pkt_size2 : '0;
-    wr_ena  <= ( pkt_size_ena_d2 )? 
-                 pkt_size_ena_d2 : ( rd_stb && !check_eq_wr_rd_flow_d && clean_ena );
+    wr_addr = ( pkt_size_ena_d2                           ) ? 
+	        rx_flow_num_d2 : rd_flow_num;
+
+    wr_size = ( pkt_size_ena_d2                           ) ?
+	        pkt_size_d2 + sum + pkt_size2 : '0;
+
+    wr_ena  = ( pkt_size_ena_d2                           ) ? 
+                pkt_size_ena_d2 : ( rd_req && !check_eq_wr_rd_flow_d && clean_ena );
   end
 
 
@@ -125,6 +140,7 @@ always_ff @( posedge clk_i or posedge rst_i )
     else
       begin
 	rd_addr_d <= rd_addr;
+
 	if( rd_stb_i )
           begin
             rd_flow_num <= rd_flow_num_i;
@@ -134,13 +150,14 @@ always_ff @( posedge clk_i or posedge rst_i )
 always_ff @( posedge clk_i or posedge rst_i )
   begin
     if( rst_i )
-      rd_stb <= '0;
+      rd_req <= '0;
     else
       begin
 	if( rd_stb_i )
-          rd_stb <= 1'b1;
+          rd_req <= 1'b1;
+
         if( rd_data_val_o )
-          rd_stb <= 1'b0;
+          rd_req <= 1'b0;
       end
   end
 
@@ -163,17 +180,16 @@ ram_2port_1clk
 #(
   .DATA_WIDTH  ( D_WIDTH  ),
   .ADDR_WIDTH  ( A_WIDTH  )
-)
-ram (
-.clk                                    ( clk_i             ),
+) ram (
+  .clk                                    ( clk_i             ),
 
-.data                                   ( wr_size           ),
+  .data                                   ( wr_size           ),
 
-.read_addr                              ( rd_addr           ),
-.write_addr                             ( wr_addr           ),
-.we                                     ( wr_ena            ),
+  .read_addr                              ( rd_addr           ),
+  .write_addr                             ( wr_addr           ),
+  .we                                     ( wr_ena            ),
 
-.q                                      ( sum_size          )
+  .q                                      ( sum_size          )
 );
 
 

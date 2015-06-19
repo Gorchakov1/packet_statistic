@@ -47,6 +47,27 @@ initial
 
 initial
   begin
+    #100.0
+    wr_stat( 0, 16'd100, 1'b1 );
+    wr_stat( 0, 16'd100, 1'b1 );
+    wr_stat( 0, 16'd100, 1'b1 );
+
+    wr_stat( 0, 16'd100, 1'b1 );
+    wr_stat( 0, 16'd100, 1'b1 );
+    wr_stat( 0, 16'd100, 1'b1 );
+
+    wr_stat( 0, 16'd100, 1'b0 );
+    wr_stat( 0, 16'd100, 1'b1 );
+    wr_stat( 0, 16'd100, 1'b0 );
+  end
+initial
+  begin
+    #230.0
+    rd_stat( 0, 1'b1 );
+  end 
+/*
+initial
+  begin
     #30.0 
     for( int i = 0; i < 1000; i++ )
       begin
@@ -64,6 +85,9 @@ initial
           rd_stat( $random, 1'b1 );	
       end
   end
+*/
+
+
 
 clocking cb @( posedge clk );
 endclocking
