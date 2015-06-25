@@ -99,7 +99,7 @@ logic               clean_ena;
 assign rd_addr = ( pkt_size_ena_d1 )? rx_flow_num_d1 : rd_flow_num;
 
 // Момент когда можно занулить поток, который прочитали, в памяти
-assign clean_ena = ( ( rd_req && pkt_size_ena_d3 ) &&
+assign clean_ena = ( ( ( rd_req && pkt_size_ena_d3 ) || ( rd_req && !pkt_size_ena_d3 && !rd_data_val_o ) ) &&
                      ( rd_flow_num == rd_addr_d  ) && 
 		       ~rd_stb_d1 );
 
@@ -116,7 +116,8 @@ always_ff @( posedge clk_i or posedge rst_i )
       end
   end
 
-assign sum = ( !check_eq_wr_rd_flow ) ? sum_size : 0;// sum_size * !check_eq_wr_rd_flow 
+assign sum = ( !check_eq_wr_rd_flow || rd_data_val_o ) ?
+                sum_size : 0;// sum_size * !check_eq_wr_rd_flow 
 always_comb
   begin
     wr_addr = ( pkt_size_ena_d2                           ) ? 

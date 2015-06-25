@@ -13,11 +13,6 @@ module ram_2port_1clk
 
 	// Declare the RAM variable
 	reg [DATA_WIDTH-1:0] ram[2**ADDR_WIDTH-1:0];
-  initial
-    begin
-      for( int i =0; i < 2**ADDR_WIDTH; i++ )
-      ram[i] = '0;
-    end
 
 	always @ (posedge clk)
 	begin
@@ -31,5 +26,15 @@ module ram_2port_1clk
 		// logic around the RAM.
 		q <= ram[read_addr];
 	end
+
+task rst_ram( );
+
+    begin
+      for( int i =0; i < 2**ADDR_WIDTH; i++ )
+      ram[i] = '0;
+    end
+  
+endtask
+
 
 endmodule
